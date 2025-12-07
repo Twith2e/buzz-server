@@ -32,7 +32,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: ["http://localhost:5173", "https://buzz-three-delta.vercel.app"],
     credentials: true,
   })
 );
@@ -57,7 +57,11 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "https://admin.socket.io"],
+    origin: [
+      "http://localhost:5173",
+      "https://admin.socket.io",
+      "https://buzz-three-delta.vercel.app/signup",
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },

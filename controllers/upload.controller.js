@@ -22,6 +22,8 @@ const getSigned = async (req, res) => {
     timestamp,
     folder,
     eager: "c_scale,w_800",
+    type: "upload",
+    access_mode: "public",
   };
 
   try {
