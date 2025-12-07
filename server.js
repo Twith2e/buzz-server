@@ -60,7 +60,7 @@ const io = new Server(server, {
     origin: [
       "http://localhost:5173",
       "https://admin.socket.io",
-      "https://buzz-three-delta.vercel.app/signup",
+      "https://buzz-three-delta.vercel.app",
     ],
     methods: ["GET", "POST"],
     credentials: true,
