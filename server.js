@@ -18,8 +18,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const socketPort = process.env.SOCKET_PORT || 3000;
-const appPort = process.env.APP_PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -97,10 +96,6 @@ const uploadImage = async (imagePath) => {
   }
 };
 
-export const socketServer = server.listen(socketPort, () => {
-  console.log(`Socket listening at ${socketPort}`);
-});
-
-export const appServer = app.listen(appPort, () => {
-  console.log(`App listening at ${appPort}`);
+export const socketServer = server.listen(PORT, () => {
+  console.log(`Server listening at ${PORT}`);
 });
