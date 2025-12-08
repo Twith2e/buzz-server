@@ -46,10 +46,10 @@ async function sendEmail(recipient, message, subject) {
       return false;
     }
     console.log(`Email sent to ${recipient}: ${info.messageId}`);
-    return true;
+    return { success: true };
   } catch (error) {
     console.error(`Error sending mail to ${recipient}:`, error);
-    return false;
+    return { success: false, error: error.message };
   }
 }
 

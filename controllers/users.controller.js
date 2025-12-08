@@ -22,15 +22,16 @@ const sendOTP = async (req, res) => {
     const generatedOTP = generateOTP();
     const emailMessage = `The One Time Password for your Tapo account is ${generatedOTP}, it expires in 5 minutes. Please do not share this with anyone`;
 
-    const sentMail = await sendEmail(
+    const mailResult = await sendEmail(
       verifiedEmail,
       emailMessage,
       "Verify Email"
     );
-    if (!sentMail)
-      return res
-        .status(500)
-        .json({ error: "Unable to send mail, please try again" });
+    if (!mailResult.success)
+      return res.status(500).json({
+        error: "Unable to send mail, please try again",
+        details: mailResult.error,
+      });
     const hashedEmail = jwt.sign(verifiedEmail, process.env.JWT_SECRET);
     await storeOTP(hashedEmail, generatedOTP);
     return res.status(200).json({
@@ -45,11 +46,12 @@ const sendOTP = async (req, res) => {
     const generatedOTP = generateOTP();
     const emailMessage = `The One Time Password for your Tapo account is ${generatedOTP}, it expires in 5 minutes. Please do not share this with anyone`;
 
-    const sentMail = await sendEmail(email, emailMessage, "Verify Email");
-    if (!sentMail)
-      return res
-        .status(500)
-        .json({ error: "Unable to send mail, please try again" });
+    const mailResult = await sendEmail(email, emailMessage, "Verify Email");
+    if (!mailResult.success)
+      return res.status(500).json({
+        error: "Unable to send mail, please try again",
+        details: mailResult.error,
+      });
     const hashedEmail = jwt.sign(email, process.env.JWT_SECRET);
     await storeOTP(hashedEmail, generatedOTP);
     return res
