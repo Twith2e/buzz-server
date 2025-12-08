@@ -1,5 +1,6 @@
 import mailer from "nodemailer";
 import dotenv from "dotenv";
+import sendinblueTransport from "nodemailer-sendinblue-transport";
 
 dotenv.config();
 
@@ -8,21 +9,12 @@ dotenv.config();
  * @returns {Promise<Object>} Configured nodemailer transporter
  */
 async function createTransporter() {
-  if (!process.env.email || !process.env.APP_PASSWORD) {
-    console.error(
-      "Missing email configuration. Ensure 'email' and 'APP_PASSWORD' variables are set."
+   try {
+    const transporter = mailer.createTransport(
+      sendinblueTransport({
+        apiKey: process.env.SENDINBLUE_API_KEY,
+      })
     );
-    throw new Error("Missing email configuration");
-  }
-
-  try {
-    const transporter = mailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.email,
-        pass: process.env.APP_PASSWORD,
-      },
-    });
     return transporter;
   } catch (error) {
     console.error("Error creating transporter:", error);
@@ -46,10 +38,10 @@ async function sendEmail(recipient, message, subject) {
       return false;
     }
     console.log(`Email sent to ${recipient}: ${info.messageId}`);
-    return { success: true };
+    return true;
   } catch (error) {
     console.error(`Error sending mail to ${recipient}:`, error);
-    return { success: false, error: error.message };
+    return false;
   }
 }
 

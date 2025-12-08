@@ -35,6 +35,7 @@
     "mongoose": "^8.9.4",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.9",
+    "nodemailer-sendinblue-transport": "^2.0.1",
     "redis": "^4.7.0",
     "socket.io": "^4.8.1",
     "uuid": "^13.0.0",
