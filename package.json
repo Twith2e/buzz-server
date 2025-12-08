@@ -16,6 +16,7 @@
     "nodemon": "^3.1.9"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "@socket.io/admin-ui": "^0.5.1",
     "@socket.io/redis-adapter": "^8.3.0",
     "axios": "^1.7.9",
@@ -36,7 +37,9 @@
     "multer": "^2.0.2",
     "nodemailer": "^7.0.9",
     "nodemailer-sendinblue-transport": "^2.0.1",
+    "open": "^11.0.0",
     "redis": "^4.7.0",
+    "sib-api-v3-sdk": "^8.5.0",
     "socket.io": "^4.8.1",
     "uuid": "^13.0.0",
     "web-push": "^3.6.7"

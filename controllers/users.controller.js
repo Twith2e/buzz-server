@@ -7,7 +7,7 @@ import userModel from "../models/users.model.js";
 import contactModel from "../models/contacts.model.js";
 import jwt from "jsonwebtoken";
 import { generateOTP, storeOTP } from "../utils/otp.js";
-import sendEmail from "../utils/email.js";
+import sendMail from "../utils/email.js";
 import { normalizeEmail } from "../utils/normalizeEmail.js";
 
 dotenv.config();
@@ -22,10 +22,10 @@ const sendOTP = async (req, res) => {
     const generatedOTP = generateOTP();
     const emailMessage = `The One Time Password for your Tapo account is ${generatedOTP}, it expires in 5 minutes. Please do not share this with anyone`;
 
-    const mailResult = await sendEmail(
+    const mailResult = await sendMail(
       verifiedEmail,
-      emailMessage,
-      "Verify Email"
+      "Verify Email",
+      emailMessage
     );
     if (!mailResult.success)
       return res.status(500).json({
@@ -46,7 +46,7 @@ const sendOTP = async (req, res) => {
     const generatedOTP = generateOTP();
     const emailMessage = `The One Time Password for your Tapo account is ${generatedOTP}, it expires in 5 minutes. Please do not share this with anyone`;
 
-    const mailResult = await sendEmail(email, emailMessage, "Verify Email");
+    const mailResult = await sendMail(email, "Verify Email", emailMessage);
     if (!mailResult.success)
       return res.status(500).json({
         error: "Unable to send mail, please try again",
