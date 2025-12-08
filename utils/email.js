@@ -4,24 +4,31 @@ import dotenv from "dotenv";
 dotenv.config();
 
 /**
- * Creates a nodemailer transporter using Google OAuth2 authentication
- * Dynamically generates access token from refresh token to ensure validity
+ * Creates a nodemailer transporter using Google App Password authentication
  * @returns {Promise<Object>} Configured nodemailer transporter
  */
 async function createTransporter() {
+  if (!process.env.email || !process.env.APP_PASSWORD) {
+    console.error(
+      "Missing email configuration. Ensure 'email' and 'APP_PASSWORD' variables are set."
+    );
+    throw new Error("Missing email configuration");
+  }
+
   try {
     const transporter = mailer.createTransport({
       host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
+      port: 465,
+      secure: true,
       auth: {
         user: process.env.email,
         pass: process.env.APP_PASSWORD,
       },
+      connectionTimeout: 10000, // 10 seconds
     });
     return transporter;
   } catch (error) {
-    console.error("Error creating transporter:", error.message);
+    console.error("Error creating transporter:", error);
     throw error;
   }
 }
@@ -37,10 +44,14 @@ async function sendEmail(recipient, message, subject) {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    if (!info) return false;
+    if (!info) {
+      console.error("Mail sent but no info returned");
+      return false;
+    }
+    console.log(`Email sent to ${recipient}: ${info.messageId}`);
     return true;
   } catch (error) {
-    console.log("Error sending mail", error);
+    console.error(`Error sending mail to ${recipient}:`, error);
     return false;
   }
 }
