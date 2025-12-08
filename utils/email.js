@@ -17,14 +17,11 @@ async function createTransporter() {
 
   try {
     const transporter = mailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
+      service: "gmail",
       auth: {
         user: process.env.email,
         pass: process.env.APP_PASSWORD,
       },
-      connectionTimeout: 10000, // 10 seconds
     });
     return transporter;
   } catch (error) {
