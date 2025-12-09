@@ -1,10 +1,11 @@
 import chatHandler from "./chat.js";
-import userModel from "../models/users.model.js";
+import statusHandler from "./status.js";
 import { redisClient, pubClient } from "../config/redis.connection.js";
 import {
   addSocketForUser,
   getUserSocketIds,
   setSocketVisibility,
+  removeSocket,
 } from "../utils/redis-helpers.js";
 import { getContactsForUser } from "../controllers/users.controller.js";
 
@@ -40,7 +41,7 @@ export default function (io) {
       await setSocketVisibility(socketId, !!visible);
     });
 
-    const userSocketCount = await pubClient.sCard(`presence:user:${userId}`);
+    const userSocketCount = await pubClient.sCard(`user:${userId}:sockets`);
     if (userSocketCount === 1) {
       // notify contacts (implement getContactsForUser)
       const contacts = await getContactsForUser(userId); // your function to return array of userIds
@@ -61,9 +62,10 @@ export default function (io) {
     });
 
     chatHandler(io, socket);
+    statusHandler(io, socket);
 
     socket.on("disconnect", async () => {
-      await redisClient.sRem(`user:${userId}:sockets`, socket.id);
+      await removeSocket(socket.id);
       const remaining = await redisClient.sCard(`user:${userId}:sockets`);
       if (remaining === 0) {
         await redisClient.set(`presence:${userId}`, "offline", {

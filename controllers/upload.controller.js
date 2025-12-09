@@ -1,7 +1,8 @@
 import statusModel from "../models/statuses.model.js";
 import dotenv from "dotenv";
 import cloudinary from "cloudinary";
-import generateExpiryDate from "../utils/generateExpiryDate.js";
+import contactModel from "../models/contacts.model.js";
+import mongoose from "mongoose";
 
 dotenv.config();
 
@@ -46,96 +47,119 @@ const getSigned = async (req, res) => {
   }
 };
 
-const uploadMedia = async (req, res) => {
-  try {
-    const file = req.file;
-    if (!file)
-      return res.status(400).json({ status: false, error: "file missing" });
-    const userId = req.user._id;
-    if (!userId)
-      return res.status(400).json({ status: false, error: "userId missing" });
-
-    const result = await cloudinary.v2.uploader.upload_stream(
-      {
-        folder: `${process.env.UPLOADS_FOLDER}/${userId}`,
-        resource_type: auto,
-      },
-      async (error, result) => {
-        if (error)
-          return res.status(500).json({ status: false, error: error.message });
-
-        const status = new statusModeel({
-          userId,
-          publicId: result.public_id,
-          url: result.secure_url,
-          resource_type: result.resource_type,
-          thumbUrl: cloudinary.v2.url(result.public_id, {
-            width: 300,
-            height: 300,
-            crop: "fill",
-            resource_type: result.resource_type,
-          }),
-          createdAt: new Date(),
-          expiresAt: generateExpiryDate(24),
-        });
-        await status.save();
-        return res.status(200).json({ status: true, status });
-      }
-    );
-    result.end(req.file.buffer);
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({ status: false, error: error.message });
-  }
-};
-
-const saveStatus = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const { publicId, secureUrl, resourceType, caption } = req.body;
-    if (!userId || !publicId || !secureUrl)
-      return res.status(400).json({ status: false, error: "missing fields" });
-    const thumbUrl = cloudinary.url(publicId, {
-      resource_type: resourceType || "image",
-      width: 300,
-      height: 300,
-      crop: "fill",
-    });
-    const status = new statusModel({
-      userId,
-      publicId,
-      url: secureUrl,
-      thumbUrl,
-      resourceType: resourceType || "image",
-      caption,
-      createdAt: new Date(),
-      expiresAt: generateExpiryDate(24),
-    });
-
-    await status.save();
-    res.json({ status: true, status });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ status: false, error: error.message });
-  }
-};
-
 const getStatuses = async (req, res) => {
   try {
     const userId = req.user._id;
-    const userIds = (req.query.userIds || "").split(",").filter(Boolean);
-    const users = [...userIds, userId];
     const now = new Date();
-    const statuses = await statusModel
+
+    // get who added viewer & mutuals as before
+    const myContacts = await contactModel
+      .find({ owner: userId, contactUser: { $ne: null }, isBlocked: false })
+      .distinct("contactUser")
+      .exec();
+
+    if (!myContacts.length)
+      return res.json({ status: true, mine: [], visible: [] });
+
+    const mutualDocs = await contactModel
       .find({
-        userId: { $in: users },
-        expiresAt: { $gt: now },
+        owner: { $in: myContacts },
+        contactUser: userId,
+        isBlocked: false,
       })
-      .sort({ createdAt: -1 });
-    return res.json({ status: true, statuses });
+      .distinct("owner")
+      .exec();
+
+    if (!mutualDocs.length)
+      return res.json({ status: true, mine: [], visible: [] });
+
+    const pipeline = [
+      {
+        $match: {
+          userId: {
+            $in: mutualDocs.map((id) => new mongoose.Types.ObjectId(id)),
+          },
+          expiresAt: { $gt: now },
+        },
+      },
+      { $sort: { createdAt: -1 } }, // newest first
+      {
+        $group: {
+          _id: "$userId",
+          latest: { $first: "$createdAt" },
+          total: { $sum: 1 },
+          statuses: {
+            $push: {
+              _id: "$_id",
+              createdAt: "$createdAt",
+              publicId: "$publicId",
+              url: "$url",
+              thumbUrl: "$thumbUrl",
+              resourceType: "$resourceType",
+              viewers: "$viewers",
+              caption: "$caption",
+              userId: "$userId",
+              expiresAt: "$expiresAt",
+              __v: "$__v",
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          userId: "$_id",
+          latest: 1,
+          total: 1,
+          statuses: { $slice: ["$statuses", 10] },
+        },
+      }, // keep last 10
+      { $sort: { latest: -1 } },
+      // join user profile
+      {
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          userId: 1,
+          latest: 1,
+          total: 1,
+          statuses: 1,
+          "user.displayName": 1,
+          "user.profilePic": 1,
+        },
+      },
+    ];
+
+    const groups = await statusModel.aggregate(pipeline).exec();
+
+    // optional massage: rename fields so client expects same shape as previous
+    const visible = groups.map((g) => ({
+      _id: g.userId,
+      displayName: g.user?.displayName || "Unknown",
+      profilePic: g.user?.profilePic || null,
+      latest: g.latest,
+      total: g.total,
+      statuses: g.statuses.reverse(), // if you prefer oldest->newest inside slice
+    }));
+
+    // mine (fetch separately or include in pipeline if you want)
+    const mine = await statusModel
+      .find({ userId, expiresAt: { $gt: now } })
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+
+    return res.json({ status: true, mine, visible });
   } catch (err) {
+    console.error("getStatusesAggregated error:", err);
     return res.status(500).json({ error: err.message });
   }
 };
 
-export { getSigned, uploadMedia, saveStatus, getStatuses };
+export { getSigned, getStatuses };

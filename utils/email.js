@@ -1,4 +1,3 @@
-import mailer from "nodemailer";
 import dotenv from "dotenv";
 import SibApiV3Sdk from "sib-api-v3-sdk";
 
@@ -15,7 +14,7 @@ export async function sendMail(to, subject, html) {
 
   const sendSmtpEmail = {
     to: [{ email: to }],
-    sender: { email: process.env.EMAIL_USER, name: "Your App" },
+    sender: { email: process.env.EMAIL_USER, name: "Buzz" },
     subject,
     htmlContent: html,
   };

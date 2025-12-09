@@ -16,10 +16,10 @@ const StatusSchema = new Schema({
   thumbUrl: { type: String },
   resourceType: {
     type: String,
-    enum: ["image", "video", "raw", "auto"],
+    enum: ["image", "video"],
     default: "image",
   },
-  caption: { type: String },
+  caption: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now, index: true },
   expiresAt: { type: Date, required: true, index: true },
   viewers: [{ type: mongoose.Schema.Types.ObjectId }],

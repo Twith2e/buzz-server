@@ -1,7 +1,7 @@
 import { pubClient } from "../config/redis.connection.js";
 
 async function addSocketForUser(userId, socketId) {
-  await pubClient.sAdd(`user:${userId}:socket`, socketId);
+  await pubClient.sAdd(`user:${userId}:sockets`, socketId);
   await pubClient.hSet(`socket:${socketId}`, {
     userId,
     visible: "1",
@@ -17,7 +17,7 @@ async function removeSocket(socketId) {
     return;
   }
   const userId = meta.userId;
-  await pubClient.sRem(`presence:user:${userId}`, socketId);
+  await pubClient.sRem(`user:${userId}:sockets`, socketId);
   await pubClient.del(`socket:${socketId}`);
 }
 
@@ -29,7 +29,7 @@ async function setSocketVisibility(socketId, visible) {
 }
 
 async function getUserSocketIds(userId) {
-  const s = await pubClient.sMembers(`presence:user:${userId}`);
+  const s = await pubClient.sMembers(`user:${userId}:sockets`);
   return s || [];
 }
 
