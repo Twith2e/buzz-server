@@ -52,7 +52,6 @@ const getStatuses = async (req, res) => {
     const userId = req.user._id;
     const now = new Date();
 
-    // get who added viewer & mutuals as before
     const myContacts = await contactModel
       .find({ owner: userId, contactUser: { $ne: null }, isBlocked: false })
       .distinct("contactUser")
@@ -82,7 +81,7 @@ const getStatuses = async (req, res) => {
           expiresAt: { $gt: now },
         },
       },
-      { $sort: { createdAt: -1 } }, // newest first
+      { $sort: { createdAt: -1 } },
       {
         $group: {
           _id: "$userId",
@@ -112,9 +111,8 @@ const getStatuses = async (req, res) => {
           total: 1,
           statuses: { $slice: ["$statuses", 10] },
         },
-      }, // keep last 10
+      },
       { $sort: { latest: -1 } },
-      // join user profile
       {
         $lookup: {
           from: "users",
@@ -138,17 +136,15 @@ const getStatuses = async (req, res) => {
 
     const groups = await statusModel.aggregate(pipeline).exec();
 
-    // optional massage: rename fields so client expects same shape as previous
     const visible = groups.map((g) => ({
       _id: g.userId,
       displayName: g.user?.displayName || "Unknown",
       profilePic: g.user?.profilePic || null,
       latest: g.latest,
       total: g.total,
-      statuses: g.statuses.reverse(), // if you prefer oldest->newest inside slice
+      statuses: g.statuses.reverse(),
     }));
 
-    // mine (fetch separately or include in pipeline if you want)
     const mine = await statusModel
       .find({ userId, expiresAt: { $gt: now } })
       .sort({ createdAt: -1 })

@@ -9,6 +9,7 @@ import userRouter from "./routers/users.routes.js";
 import messageRouter from "./routers/messages.routes.js";
 import notificationRouter from "./routers/notification.routes.js";
 import uploadRouter from "./routers/upload.routes.js";
+import settingRouter from "./routers/settings.routes.js";
 import connect from "./config/mongodb.connection.js";
 import socketHandler from "./sockets/index.js";
 import { instrument } from "@socket.io/admin-ui";
@@ -47,6 +48,7 @@ api.use("/users", userRouter);
 api.use("/messages", messageRouter);
 api.use("/push", notificationRouter);
 api.use("/upload", uploadRouter);
+api.use("/settings", settingRouter);
 
 app.use("/api/v1", api);
 
