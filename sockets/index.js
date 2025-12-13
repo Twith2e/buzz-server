@@ -1,5 +1,6 @@
 import chatHandler from "./chat.js";
 import statusHandler from "./status.js";
+import callHandler from "./call.js";
 import { redisClient, pubClient } from "../config/redis.connection.js";
 import {
   addSocketForUser,
@@ -63,6 +64,7 @@ export default function (io) {
 
     chatHandler(io, socket);
     statusHandler(io, socket);
+    callHandler(io, socket);
 
     socket.on("disconnect", async () => {
       await removeSocket(socket.id);
