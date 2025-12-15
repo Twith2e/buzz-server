@@ -33,6 +33,10 @@ export default function (io) {
     // Track this socket under the userId
     if (!userId) return;
 
+    socket.join(userId);
+
+    console.log("Socket rooms:", Array.from(socket.rooms));
+
     await addSocketForUser(userId, socketId);
 
     io.emit("presence:update", { userId, online: true });
