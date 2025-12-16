@@ -36,4 +36,19 @@ const updateSettings = async (req, res) => {
   }
 };
 
-export { updateSettings };
+const getSettings = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await userModel.findById(userId);
+    if (!user) return res.status(404).json({ error: "user_not_found" });
+
+    const settings = await settingModel.findOne({ userId }).lean().exec();
+    return res.json({ status: true, settings });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+export { updateSettings, getSettings };

@@ -1,11 +1,9 @@
 export default function (io, socket) {
   socket.on("call:offer", ({ to, from, offer, type }) => {
-    console.log("Emitting to room:", to);
-    console.log("Room members:", io.sockets.adapter.rooms.get(to));
-
     io.to(to).emit("call:incoming", {
       from,
       type,
+      offer,
     });
 
     io.to(to).emit("webrtc:offer", {
