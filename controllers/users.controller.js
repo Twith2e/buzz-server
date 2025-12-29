@@ -29,7 +29,7 @@ const sendOTP = async (req, res) => {
     const generatedOTP = generateOTP();
     const templatePath = path.join(
       process.cwd(),
-      "src/templates/emails/otp-email.html"
+      "/templates/emails/otp-email.html"
     );
 
     const htmlTemplate = fs.readFileSync(templatePath, "utf-8");
