@@ -372,7 +372,7 @@ const getContactsForUser = async (userId) => {
 };
 
 export {
-  register,
+  auth,
   sendOTP,
   verifyOTP,
   fetchUser,
