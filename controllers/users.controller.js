@@ -61,10 +61,35 @@ const sendOTP = async (req, res) => {
 
 const verifyOTP = async (req, res) => {
   try {
-    const { otp } = req.body;
-    const { email } = req.body;
+    const { otp, email } = req.body;
+    if (!otp || !email) {
+      return res.status(400).json({
+        error: "Missing required parameters",
+      });
+    }
+    let isNewUser = false;
+    let accessToken;
+    let refreshToken;
     try {
       const verifiedEmail = jwt.verify(email, process.env.JWT_SECRET);
+      const existingUser = await userModel.findOne({ email: verifiedEmail });
+      if (!existingUser) {
+        isNewUser = true;
+      }
+      if (isNewUser) {
+        accessToken = generateAccessToken({ email: verifiedEmail });
+        refreshToken = await generateRefreshToken({
+          email: verifiedEmail,
+        });
+        if (accessToken && refreshToken) {
+          const isProd = process.env.NODE_ENV === "production";
+          res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: isProd ? "none" : "lax",
+          });
+        }
+      }
       const storedOTP = await redisClient.get(`otp:${email}`);
       if (!storedOTP)
         return res.status(401).json({ error: "Invalid or expired otp" });
@@ -74,7 +99,14 @@ const verifyOTP = async (req, res) => {
           return res.status(500).json({ error: "An error occured" });
         return res
           .status(200)
-          .json({ message: "Otp is valid", email, hashedEmail: verifiedEmail });
+          .json({
+            message: "Otp is valid",
+            email,
+            hashedEmail: verifiedEmail,
+            isNewUser,
+            accessToken,
+            refreshToken,
+          });
       }
       return res.status(401).json({ error: "Incorrect OTP" });
     } catch (error) {
