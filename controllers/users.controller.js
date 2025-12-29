@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import dotenv from "dotenv";
 import generateAccessToken from "../utils/generateAccessToken.js";
 import generateRefreshToken from "../utils/generateRefreshToken.js";
@@ -13,49 +15,46 @@ dotenv.config();
 
 const sendOTP = async (req, res) => {
   const { email } = req.body;
-  try {
-    const verifiedEmail = jwt.verify(email, process.env.JWT_SECRET);
-    const existingUser = await userModel.findOne({ email: verifiedEmail });
-    if (existingUser)
-      return res.status(400).json({ error: "User already exists" });
-    const generatedOTP = generateOTP();
-    const emailMessage = `The One Time Password for your Tapo account is ${generatedOTP}, it expires in 5 minutes. Please do not share this with anyone`;
 
-    const mailResult = await sendMail(
-      verifiedEmail,
-      "Verify Email",
-      emailMessage
+  if (!email) return res.status(400).json({ error: "Email is required" });
+
+  try {
+    let verifiedEmail;
+    try {
+      verifiedEmail = jwt.verify(email, process.env.JWT_SECRET);
+    } catch {
+      verifiedEmail = email;
+    }
+
+    const generatedOTP = generateOTP();
+    const templatePath = path.join(
+      process.cwd(),
+      "src/templates/emails/otp-email.html"
     );
-    if (!mailResult.success)
+
+    const htmlTemplate = fs.readFileSync(templatePath, "utf-8");
+    const html = htmlTemplate.replace("{{OTP_CODE}}", generatedOTP);
+
+    const mailResult = await sendMail(verifiedEmail, "Verify your email", html);
+
+    if (!mailResult.success) {
       return res.status(500).json({
-        error: "Unable to send mail, please try again",
+        error: "Unable to send mail",
         details: mailResult.error,
       });
+    }
+
     const hashedEmail = jwt.sign(verifiedEmail, process.env.JWT_SECRET);
     await storeOTP(hashedEmail, generatedOTP);
+
     return res.status(200).json({
-      message: "Email has been sent",
+      success: true,
+      message: "OTP sent successfully",
       email: hashedEmail,
-      hashedEmail: email,
     });
   } catch (error) {
-    const existingUser = await userModel.findOne({ email });
-    if (existingUser)
-      return res.status(400).json({ error: "User already exists" });
-    const generatedOTP = generateOTP();
-    const emailMessage = `The One Time Password for your Tapo account is ${generatedOTP}, it expires in 5 minutes. Please do not share this with anyone`;
-
-    const mailResult = await sendMail(email, "Verify Email", emailMessage);
-    if (!mailResult.success)
-      return res.status(500).json({
-        error: "Unable to send mail, please try again",
-        details: mailResult.error,
-      });
-    const hashedEmail = jwt.sign(email, process.env.JWT_SECRET);
-    await storeOTP(hashedEmail, generatedOTP);
-    return res
-      .status(200)
-      .json({ message: "Email has been sent", email, hashedEmail });
+    console.error("sendOTP error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -116,9 +115,6 @@ const register = async (req, res) => {
 
       const existingUser = await userModel.findOne({ email: verifiedEmail });
       if (existingUser) {
-        return res.status(400).json({
-          error: "Email already exists",
-        });
       }
       const data = {
         email: verifiedEmail,

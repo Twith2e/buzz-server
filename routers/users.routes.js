@@ -2,7 +2,7 @@ import express from "express";
 const router = express.Router();
 
 import {
-  register,
+  auth,
   sendOTP,
   verifyOTP,
   fetchUser,
@@ -14,7 +14,7 @@ import {
 } from "../controllers/users.controller.js";
 import { authGuard } from "../middlewares/auth.js";
 
-router.post("/register", register);
+router.post("/auth", auth);
 router.post("/send-otp", sendOTP);
 router.post("/verify-otp", verifyOTP);
 router.get("/get-user", fetchUser);
