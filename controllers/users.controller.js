@@ -73,7 +73,7 @@ const verifyOTP = async (req, res) => {
     try {
       const verifiedEmail = jwt.verify(email, process.env.JWT_SECRET);
       const existingUser = await userModel.findOne({ email: verifiedEmail });
-      if (!existingUser) {
+      if (existingUser) {
         isNewUser = true;
       }
       if (isNewUser) {
@@ -97,16 +97,14 @@ const verifyOTP = async (req, res) => {
         const deletedOtp = await redisClient.del(`otp:${email}`);
         if (!deletedOtp)
           return res.status(500).json({ error: "An error occured" });
-        return res
-          .status(200)
-          .json({
-            message: "Otp is valid",
-            email,
-            hashedEmail: verifiedEmail,
-            isNewUser,
-            accessToken,
-            refreshToken,
-          });
+        return res.status(200).json({
+          message: "Otp is valid",
+          email,
+          hashedEmail: verifiedEmail,
+          isNewUser,
+          accessToken,
+          refreshToken,
+        });
       }
       return res.status(401).json({ error: "Incorrect OTP" });
     } catch (error) {
