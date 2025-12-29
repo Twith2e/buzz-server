@@ -50,7 +50,8 @@ const sendOTP = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "OTP sent successfully",
-      email: hashedEmail,
+      email,
+      hashedEmail,
     });
   } catch (error) {
     console.error("sendOTP error:", error);
