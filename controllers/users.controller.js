@@ -402,6 +402,51 @@ const getContactsForUser = async (userId) => {
   }
 };
 
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { displayName, profilePic } = req.body;
+
+    if (!displayName && !profilePic) {
+      return res
+        .status(400)
+        .json({
+          error: "At least one field (displayName or profilePic) is required",
+        });
+    }
+
+    const updateData = {};
+    if (displayName) {
+      if (typeof displayName !== "string" || displayName.trim().length === 0) {
+        return res.status(400).json({ error: "Invalid displayName" });
+      }
+      updateData.displayName = displayName.trim();
+    }
+    if (profilePic) {
+      if (typeof profilePic !== "string") {
+        return res.status(400).json({ error: "Invalid profilePic" });
+      }
+      updateData.profilePic = profilePic;
+    }
+
+    const updatedUser = await userModel.findByIdAndUpdate(userId, updateData, {
+      new: true,
+    });
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    return res.status(200).json({
+      message: "Profile updated successfully",
+      success: true,
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("updateProfile error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 export {
   register,
   sendOTP,
@@ -413,4 +458,5 @@ export {
   getContactList,
   blockContact,
   getContactsForUser,
+  updateProfile,
 };

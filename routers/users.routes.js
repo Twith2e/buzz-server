@@ -11,6 +11,7 @@ import {
   addContact,
   getContactList,
   blockContact,
+  updateProfile,
 } from "../controllers/users.controller.js";
 import { authGuard } from "../middlewares/auth.js";
 
@@ -23,5 +24,6 @@ router.get("/find", authGuard, findUserByEmail);
 router.post("/add-contact", authGuard, addContact);
 router.get("/get-contact-list", authGuard, getContactList);
 router.post("/block-contact", authGuard, blockContact);
+router.put("/update-profile", authGuard, updateProfile);
 
 export default router;
