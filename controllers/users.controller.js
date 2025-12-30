@@ -76,7 +76,7 @@ const verifyOTP = async (req, res) => {
       if (!existingUser) {
         isNewUser = true;
       }
-      if (isNewUser) {
+      if (!isNewUser) {
         accessToken = generateAccessToken({ email: verifiedEmail });
         refreshToken = await generateRefreshToken({
           email: verifiedEmail,
