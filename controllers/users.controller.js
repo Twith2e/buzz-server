@@ -73,7 +73,7 @@ const verifyOTP = async (req, res) => {
     try {
       const verifiedEmail = jwt.verify(email, process.env.JWT_SECRET);
       const existingUser = await userModel.findOne({ email: verifiedEmail });
-      if (existingUser) {
+      if (!existingUser) {
         isNewUser = true;
       }
       if (isNewUser) {
@@ -408,11 +408,9 @@ const updateProfile = async (req, res) => {
     const { displayName, profilePic } = req.body;
 
     if (!displayName && !profilePic) {
-      return res
-        .status(400)
-        .json({
-          error: "At least one field (displayName or profilePic) is required",
-        });
+      return res.status(400).json({
+        error: "At least one field (displayName or profilePic) is required",
+      });
     }
 
     const updateData = {};
