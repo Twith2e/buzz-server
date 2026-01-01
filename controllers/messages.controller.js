@@ -73,7 +73,6 @@ const getMessages = async (req, res) => {
     }
     const rawMessages = await messageModel
       .find(query)
-      .sort({ _id: -1 })
       .limit(Number(limit))
       .populate("from", "email displayName profilePic")
       .populate("taggedMessage")
