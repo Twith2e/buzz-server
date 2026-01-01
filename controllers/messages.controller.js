@@ -65,21 +65,34 @@ const getConversations = async (req, res) => {
 
 const getMessages = async (req, res) => {
   try {
-    const conversationId = req.params.conversationId;
+    const { conversationId } = req.params;
+    const { before, limit = 20 } = req.query;
+    const query = { conversation: conversationId };
+    if (before) {
+      query._id = { $lt: before };
+    }
     const rawMessages = await messageModel
-      .find({ conversation: conversationId })
+      .find(query)
+      .sort({ _id: -1 })
+      .limit(Number(limit))
       .populate("from", "email displayName profilePic")
       .populate("taggedMessage")
       .populate("taggedMessage.from", "email displayName profilePic");
     if (!rawMessages)
       return res.status(404).json({ message: "No messages found" });
-    // Normalize attachments for each message before responding
+
     const messages = rawMessages.map((m) => {
       const obj = m.toObject();
       obj.attachments = normalizeAttachments(obj.attachments);
       return obj;
     });
-    res.status(200).json({ status: true, messages });
+
+    res.status(200).json({
+      status: true,
+      messages,
+      hasMore: rawMessages.length === Number(limit),
+      nextCursor: rawMessages[0]?._id || null,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
