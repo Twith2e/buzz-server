@@ -445,6 +445,21 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const logout = async (req, res) => {
+  try {
+    res.clearCookie("refreshToken");
+    const token = req.cookies.refreshToken;
+    if (token) {
+      await redisClient.del(`refreshToken:${token}`);
+    }
+
+    return res.status(200).json({ success: true, message: "Logged out" });
+  } catch (error) {
+    console.error("logout error:", error);
+    return res.status(500).json({ error: "Logout failed" });
+  }
+};
+
 export {
   register,
   sendOTP,
@@ -457,4 +472,5 @@ export {
   blockContact,
   getContactsForUser,
   updateProfile,
+  logout,
 };

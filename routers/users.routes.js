@@ -3,6 +3,7 @@ const router = express.Router();
 
 import {
   register,
+  logout,
   sendOTP,
   verifyOTP,
   fetchUser,
@@ -16,6 +17,7 @@ import {
 import { authGuard } from "../middlewares/auth.js";
 
 router.post("/register", register);
+router.post("/logout", authGuard, logout);
 router.post("/send-otp", sendOTP);
 router.post("/verify-otp", verifyOTP);
 router.get("/get-user", fetchUser);

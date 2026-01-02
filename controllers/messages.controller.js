@@ -73,6 +73,7 @@ const getMessages = async (req, res) => {
     }
     const rawMessages = await messageModel
       .find(query)
+      .sort({ _id: -1 })
       .limit(Number(limit))
       .populate("from", "email displayName profilePic")
       .populate("taggedMessage")
@@ -80,18 +81,21 @@ const getMessages = async (req, res) => {
     if (!rawMessages)
       return res.status(404).json({ message: "No messages found" });
 
-    const messages = rawMessages.map((m) => {
-      const obj = m.toObject();
-      obj.attachments = normalizeAttachments(obj.attachments);
-      return obj;
-    });
+    const messages = rawMessages
+      .map((m) => {
+        const obj = m.toObject();
+        obj.attachments = normalizeAttachments(obj.attachments);
+        return obj;
+      })
+      .reverse();
 
     res.status(200).json({
       status: true,
       messages,
       hasMore: rawMessages.length === Number(limit),
-      nextCursor: rawMessages[0]?._id || null,
+      nextCursor: rawMessages[rawMessages.length - 1]._id || null,
     });
+    console.log(messages);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
