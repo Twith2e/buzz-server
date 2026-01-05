@@ -373,3 +373,13 @@ export default function (io, socket) {
     }
   });
 }
+
+/**
+ * typing
+ * sends realtime update as a user is typing.
+ */
+socket.on("typing:sent", ({ conversationId, userId, typing }) => {
+  socket
+    .to(conversationId)
+    .emit("typing:received", { conversationId, userId, typing });
+});
