@@ -66,6 +66,7 @@ const io = new Server(server, {
       "http://localhost:5173",
       "https://admin.socket.io",
       "https://buzz-three-delta.vercel.app",
+      "http://192.168.0.135:5173",
     ],
     methods: ["GET", "POST"],
     credentials: true,
