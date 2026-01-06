@@ -53,7 +53,11 @@ export default function (io) {
       for (const contactId of contacts) {
         const cSockets = await getUserSocketIds(contactId);
         for (const sid of cSockets) {
-          io.to(sid).emit("presence:update", { userId, online: true });
+          io.to(sid).emit("presence:update", {
+            userId: contactId,
+            online: true,
+          });
+          console.log(userId);
         }
       }
     }
@@ -77,7 +81,11 @@ export default function (io) {
         await redisClient.set(`presence:${userId}`, "offline", {
           EX: 60,
         });
-        io.emit("presence:update", { userId, online: false });
+        io.emit("presence:update", {
+          userId,
+          online: false,
+          lastSeen: Date.now(),
+        });
       }
     });
   });
