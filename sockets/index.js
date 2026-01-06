@@ -54,7 +54,7 @@ export default function (io) {
         const cSockets = await getUserSocketIds(contactId);
         for (const sid of cSockets) {
           io.to(sid).emit("presence:update", {
-            userId: contactId,
+            userId,
             online: true,
           });
           console.log(userId);
