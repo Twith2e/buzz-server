@@ -39,7 +39,7 @@ export default function (io) {
 
     await addSocketForUser(userId, socketId);
 
-    io.emit("presence:update", { userId, online: true });
+    // io.emit("presence:update", { userId, online: true });
 
     socket.on("client:visibility", async ({ visible }) => {
       // Only accept booleans and for authenticated sockets
