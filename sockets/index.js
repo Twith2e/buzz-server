@@ -44,9 +44,13 @@ export default function (io) {
 
         if (hasBecomeVisible) {
           const contacts = await getContactsForUser(userId);
-          contacts.forEach((contactId) => {
-            console.log(contactId);
-            io.to(contactId).emit("presence:update", {
+          if (!contacts) {
+            console.log("no contacts found");
+            return;
+          }
+          contacts.forEach((contact) => {
+            console.log(contact._id);
+            io.to(contact._id.toString()).emit("presence:update", {
               userId,
               online: true,
             });
