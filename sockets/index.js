@@ -1,7 +1,7 @@
 import chatHandler from "./chat.js";
 import statusHandler from "./status.js";
 import callHandler from "./call.js";
-import { redisClient, pubClient } from "../config/redis.connection.js";
+import { redisClient } from "../config/redis.connection.js";
 import {
   addSocketForUser,
   setSocketVisibility,
@@ -24,6 +24,8 @@ export default function (io) {
       socket.handshake.query?.userId ||
       socket.handshake.headers?.userId;
     const userId = rawUserId ? String(rawUserId) : null;
+    console.log("userid adding to room: ", userId);
+
     const socketId = socket?.id;
 
     // Track this socket under the userId
@@ -49,7 +51,7 @@ export default function (io) {
             return;
           }
           contacts.forEach((contact) => {
-            console.log(contact._id);
+            console.log(contact._id.toString());
             io.to(contact._id.toString()).emit("presence:update", {
               userId,
               online: true,
@@ -57,11 +59,6 @@ export default function (io) {
           });
           console.log(`User ${userId} is online`);
         } else {
-          io.to(userId).emit("presence:update", {
-            userId,
-            online: false,
-            lastSeen: Date.now(),
-          });
           console.log(`User ${userId} went offline`);
           console.log(hasBecomeVisible);
         }
@@ -91,8 +88,8 @@ export default function (io) {
           await redisClient.set(`presence:${userId}`, "offline", { EX: 60 });
 
           const contacts = await getContactsForUser(userId);
-          contacts.forEach((contactId) => {
-            io.to(contactId).emit("presence:update", {
+          contacts.forEach((contact) => {
+            io.to(contact._id.toString()).emit("presence:update", {
               userId,
               online: false,
               lastSeen: Date.now(),
