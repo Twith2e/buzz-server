@@ -39,16 +39,27 @@ export default function (io) {
 
     socket.on("client:visibility", async ({ visible }) => {
       try {
+        if (!socketId) console.log("NO socket id found");
         const hasBecomeVisible = await setSocketVisibility(socketId, !!visible);
 
         if (hasBecomeVisible) {
           const contacts = await getContactsForUser(userId);
           contacts.forEach((contactId) => {
+            console.log(contactId);
             io.to(contactId).emit("presence:update", {
               userId,
               online: true,
             });
           });
+          console.log(`User ${userId} is online`);
+        } else {
+          io.to(userId).emit("presence:update", {
+            userId,
+            online: false,
+            lastSeen: Date.now(),
+          });
+          console.log(`User ${userId} went offline`);
+          console.log(hasBecomeVisible);
         }
       } catch (err) {
         console.error("Visibility update failed", err);

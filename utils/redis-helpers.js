@@ -2,11 +2,11 @@ import { pubClient } from "../config/redis.connection.js";
 
 async function addSocketForUser(userId, socketId) {
   await pubClient.sAdd(`user:${userId}:sockets`, socketId);
-  await pubClient.hSet(`socket:${socketId}`, {
-    userId,
-    visible: "1",
-    lastSeen: new Date().toISOString(),
-  });
+  // await pubClient.hSet(`socket:${socketId}`, {
+  //   userId,
+  //   visible: "1",
+  //   lastSeen: new Date().toISOString(),
+  // });
 }
 
 async function removeSocket(socketId) {
@@ -21,11 +21,21 @@ async function removeSocket(socketId) {
   await pubClient.del(`socket:${socketId}`);
 }
 
+// Function: setSocketVisibility
+// Purpose: Update visibility and report whether it changed to true.
+// Behavior: Returns true only when the previous state was not visible and now is visible.
 async function setSocketVisibility(socketId, visible) {
-  await pubClient.hSet(`socket:${socketId}`, {
-    visible: visible ? "1" : "0",
+  const key = `socket:${socketId}`;
+  const prev = await pubClient.hGet(key, "visible"); // "1" | "0" | null
+  const next = visible ? "1" : "0";
+
+  await pubClient.hSet(key, {
+    visible: next,
     lastSeen: new Date().toISOString(),
   });
+
+  // Became visible if previous wasn't "1" and now is "1"
+  return prev !== "1" && next === "1";
 }
 
 async function getUserSocketIds(userId) {
