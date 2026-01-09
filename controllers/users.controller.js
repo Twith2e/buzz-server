@@ -118,7 +118,7 @@ const verifyOTP = async (req, res) => {
 
 const register = async (req, res) => {
   try {
-    const { email, displayName } = req.body;
+    const { email, displayName, profilePic } = req.body;
     if (!email || !displayName) {
       return res.status(400).json({
         error: "Missing required parameters",
@@ -143,13 +143,17 @@ const register = async (req, res) => {
       ) {
         return res.status(400).json({ error: "Invalid email format" });
       }
-
+      const profilePicRegex = new RegExp(process.env.CLOUDINARY_UPLOAD_REGEX);
+      if (typeof profilePic !== "string" || !profilePicRegex.test(profilePic)) {
+        return res.status(400).json({ error: "Invalid profile picture URL" });
+      }
       const existingUser = await userModel.findOne({ email: verifiedEmail });
       if (existingUser) {
       }
       const data = {
         email: verifiedEmail,
         displayName,
+        profilePic,
       };
       const registeredUser = await userModel.create(data);
       if (!registeredUser)
