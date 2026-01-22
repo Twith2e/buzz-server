@@ -29,7 +29,7 @@ const sendOTP = async (req, res) => {
     const generatedOTP = generateOTP();
     const templatePath = path.join(
       process.cwd(),
-      "/templates/emails/otp-email.html"
+      "/templates/emails/otp-email.html",
     );
 
     const htmlTemplate = fs.readFileSync(templatePath, "utf-8");
@@ -272,17 +272,16 @@ const addContact = async (req, res) => {
   try {
     const ownerId = req.user._id;
     const { friendEmail, localName } = req.body;
+    console.log(friendEmail);
     const email = normalizeEmail(friendEmail);
     if (!email) return res.status(400).json({ error: "Invalid email" });
-
     const matchedUser = await userModel
       .findOne({
         email,
       })
-      .select("_id email displayName, profilePic")
+      .select("_id email displayName profilePic")
       .lean();
     const contactId = matchedUser ? matchedUser._id : null;
-
     const filter = { owner: ownerId, email };
     const update = {
       $set: {
@@ -301,6 +300,24 @@ const addContact = async (req, res) => {
       upsert: true,
     });
 
+    console.log({
+      message: "Friend added successfully",
+      success: true,
+      contact: {
+        _id: savedContact._id,
+        email: savedContact.email,
+        localName: savedContact.localName,
+        matched: !!contactId,
+        user: matchedUser
+          ? {
+              _id: matchedUser._id,
+              name: matchedUser.displayName,
+              profilePic: matchedUser.profilePic,
+            }
+          : null,
+      },
+    });
+
     return res.status(200).json({
       message: "Friend added successfully",
       success: true,
@@ -312,8 +329,8 @@ const addContact = async (req, res) => {
         user: matchedUser
           ? {
               _id: matchedUser._id,
-              name: matchedUser.name,
-              avatarUrl: matchedUser.avatarUrl,
+              name: matchedUser.displayName,
+              profilePic: matchedUser.profilePic,
             }
           : null,
       },

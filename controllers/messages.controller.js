@@ -64,6 +64,7 @@ const getConversations = async (req, res) => {
 };
 
 const getMessages = async (req, res) => {
+  const DIRECT_CONVO_REGEX = /^direct:[a-f0-9]{24}:[a-f0-9]{24}$/;
   try {
     const { conversationId } = req.params;
     const { before, limit = 20 } = req.query;
