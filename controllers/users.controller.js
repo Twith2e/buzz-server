@@ -6,6 +6,7 @@ import generateRefreshToken from "../utils/generateRefreshToken.js";
 import { redisClient } from "../config/redis.connection.js";
 import userModel from "../models/users.model.js";
 import contactModel from "../models/contacts.model.js";
+import conversationModel from "../models/conversations.model.js";
 import jwt from "jsonwebtoken";
 import { generateOTP, storeOTP } from "../utils/otp.js";
 import sendMail from "../utils/email.js";
@@ -261,7 +262,19 @@ const findUserByEmail = async (req, res) => {
       .lean();
     if (!user)
       return res.status(404).json({ matched: false, error: "User not found" });
-    return res.status(200).json({ matched: true, user });
+    let conversationId = null;
+    try {
+      if (req.user && req.user._id) {
+        const convo = await conversationModel
+          .findOne({ participants: { $all: [req.user._id, user._id] } })
+          .select("_id")
+          .lean();
+        if (convo) conversationId = convo._id;
+      }
+    } catch (err) {
+      console.error("find-user-conversation-error:", err);
+    }
+    return res.status(200).json({ matched: true, user, conversationId });
   } catch (error) {
     console.log("find-user-by-email-error: ", error);
     return res.status(500).json({ error: "Internal Server Error" });
