@@ -479,6 +479,21 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const setTourSettings = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await userModel.findById(userId);
+    if (!user) return res.status(404).json({ error: "user_not_found" });
+    user.toured = true;
+    await user.save();
+    return res.json({ status: true, user });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 const logout = async (req, res) => {
   try {
     res.clearCookie("refreshToken");
@@ -506,5 +521,6 @@ export {
   blockContact,
   getContactsForUser,
   updateProfile,
+  setTourSettings,
   logout,
 };

@@ -30,6 +30,10 @@ const userSchema = mongoose.Schema({
     enum: ["offline", "online"],
     default: "offline",
   },
+  toured: {
+    type: Boolean,
+    default: false,
+  },
   resetPasswordToken: {
     type: String,
     default: null,

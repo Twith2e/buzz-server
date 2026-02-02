@@ -13,6 +13,7 @@ import {
   getContactList,
   blockContact,
   updateProfile,
+  setTourSettings,
 } from "../controllers/users.controller.js";
 import { authGuard } from "../middlewares/auth.js";
 
@@ -27,5 +28,5 @@ router.post("/add-contact", authGuard, addContact);
 router.get("/get-contact-list", authGuard, getContactList);
 router.post("/block-contact", authGuard, blockContact);
 router.put("/update-profile", authGuard, updateProfile);
-
+router.post("/tour", authGuard, setTourSettings);
 export default router;

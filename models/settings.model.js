@@ -5,7 +5,6 @@ const SettingSchema = new Schema({
   userId: { type: mongoose.SchemaTypes.ObjectId, ref: "User", required: true },
   notification: { type: Boolean, default: true },
   theme: { type: String, enum: ["dark", "light", "system"], default: "dark" },
-  tourSettings: { type: Boolean, default: false },
   language: {
     type: String,
     enum: ["en", "fr", "es", "de", "it", "pt", "ru", "ja", "zh", "ko"],
