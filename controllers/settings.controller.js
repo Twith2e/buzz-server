@@ -24,7 +24,7 @@ const updateSettings = async (req, res) => {
       .findOneAndUpdate(
         { userId },
         { $set: patch },
-        { new: true, upsert: true, setDefaultsOnInsert: true }
+        { new: true, upsert: true, setDefaultsOnInsert: true },
       )
       .lean()
       .exec();
@@ -51,4 +51,21 @@ const getSettings = async (req, res) => {
   }
 };
 
-export { updateSettings, getSettings };
+const setTourSettings = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await userModel.findById(userId);
+    if (!user) return res.status(404).json({ error: "user_not_found" });
+    const settings = await settingModel.findOne({ userId }).lean().exec();
+    if (!settings) return res.status(404).json({ error: "settings_not_found" });
+    settings.tourSettings = true;
+    await settings.save();
+    return res.json({ status: true, settings });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+export { updateSettings, getSettings, setTourSettings };
