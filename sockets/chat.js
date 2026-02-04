@@ -79,7 +79,7 @@ export default function (io, socket) {
       }
       const conversation = await conversationModel.createDirectConversation(
         userId,
-        contact._id
+        contact._id,
       );
 
       const roomId = conversation._id.toString();
@@ -126,7 +126,7 @@ export default function (io, socket) {
               status: "sent",
               from: { $ne: connectedUserId },
             },
-            { $set: { status: "delivered" } }
+            { $set: { status: "delivered" } },
           );
 
           if (updatedMessages) {
@@ -165,7 +165,7 @@ export default function (io, socket) {
     "send-message",
     async (
       { roomId, message, from, tempId, taggedMessage, attachment },
-      ack
+      ack,
     ) => {
       try {
         const conversation = await conversationModel.findById(roomId);
@@ -199,25 +199,44 @@ export default function (io, socket) {
           if (attachmentsData.length) {
             await messageModel.updateOne(
               { _id: savedMessage._id },
-              { $push: { attachments: { $each: attachmentsData } } }
+              { $push: { attachments: { $each: attachmentsData } } },
             );
           }
         }
 
+        // Build taggedMessage payload if present
+        let taggedMessagePayload = null;
+        if (taggedMessage) {
+          const taggedMsg = await messageModel
+            .findById(taggedMessage)
+            .populate("from", "_id email displayName profilePic")
+            .lean();
+          if (taggedMsg) {
+            taggedMessagePayload = {
+              _id: taggedMsg._id.toString(),
+              message: taggedMsg.message,
+              from: taggedMsg.from,
+              attachments: taggedMsg.attachments || [],
+            };
+          }
+        }
+
         const payload = {
-          id: savedMessage._id.toString(),
+          _id: savedMessage._id.toString(),
           conversationId: conversation._id.toString(),
           from: savedMessage.from.toString(),
           message: savedMessage.message,
           ts: savedMessage.ts.toISOString(),
+          status: "sent",
           tempId,
           attachments: attachmentsData,
+          ...(taggedMessagePayload && { taggedMessage: taggedMessagePayload }),
         };
 
         console.log("send-message payload:", payload);
 
         socket.to(roomId).emit("chat-message", payload);
-        ack?.({ status: "success", payload });
+        ack?.({ status: "ok", payload });
 
         // Push notification to offline recipients
         process.nextTick(async () => {
@@ -264,7 +283,7 @@ export default function (io, socket) {
         console.log(error);
         ack?.({ status: "error", error: error.message });
       }
-    }
+    },
   );
 
   /**
@@ -303,7 +322,7 @@ export default function (io, socket) {
           ts: { $lte: upToMsg.ts },
           from: { $ne: socket.userId },
         },
-        { $set: { status: "read" } }
+        { $set: { status: "read" } },
       );
 
       if (!updatedMessages) {
@@ -356,7 +375,7 @@ export default function (io, socket) {
 
       await conversation.populate(
         "participants",
-        "_id email displayName profilePic"
+        "_id email displayName profilePic",
       );
 
       if (!conversation) {
