@@ -435,7 +435,9 @@ const getContactList = async (req, res) => {
 const blockContact = async (req, res) => {
   try {
     const ownerId = req.user._id;
-    const { contactEmail } = req.query;
+    const { contactEmail, block } = req.query;
+    const shouldBlock = block === "false" || block === false ? false : true;
+
     const email = normalizeEmail(contactEmail);
     if (!email) return res.status(404).json({ error: "Email not found" });
 
@@ -445,7 +447,7 @@ const blockContact = async (req, res) => {
     const filter = { owner: ownerId, email };
     const update = {
       $set: {
-        isBlocked: true,
+        isBlocked: shouldBlock,
         updatedAt: new Date(),
         ...(matchedUser && { contactUser: matchedUser._id }),
       },
@@ -460,7 +462,7 @@ const blockContact = async (req, res) => {
     });
 
     return res.status(200).json({
-      message: "Contact blocked successfully",
+      message: `Contact ${shouldBlock ? "blocked" : "unblocked"} successfully`,
       success: true,
       contact: updatedContact,
     });

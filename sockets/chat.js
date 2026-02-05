@@ -32,6 +32,45 @@ export default function (io, socket) {
   }
 
   /**
+   * getAllowedRecipients
+   * Returns a list of participant IDs who should receive an event from senderId.
+   * Checks for mutual blocking between sender and each participant.
+   */
+  async function getAllowedRecipients(senderId, conversation) {
+    try {
+      if (!conversation) return [];
+
+      // Ensure participants are populated with email for block checking
+      if (!conversation.populated("participants")) {
+        await conversation.populate("participants", "email");
+      }
+
+      const senderUser = conversation.participants.find(
+        (p) => p._id.toString() === String(senderId),
+      );
+      if (!senderUser) return [];
+
+      const allowed = [];
+      for (const p of conversation.participants) {
+        const recipientId = p._id.toString();
+        if (recipientId === String(senderId)) continue;
+
+        // Mutual block check
+        const blockedByRecipient = await isUserBlocked(recipientId, senderUser);
+        const blockedBySender = await isUserBlocked(senderId, p);
+
+        if (!blockedByRecipient && !blockedBySender) {
+          allowed.push(recipientId);
+        }
+      }
+      return allowed;
+    } catch (err) {
+      console.error("getAllowedRecipients error:", err);
+      return [];
+    }
+  }
+
+  /**
    * normalizeAttachmentItem
    * Converts a client-provided attachment payload to the Message.attachments schema shape.
    * Returns an object with url, format, size, duration, fileName, width, height.
@@ -124,10 +163,21 @@ export default function (io, socket) {
       ack?.({ status: "success" });
 
       socket.emit("chat-initialized", { roomId });
-      io.to(roomId).emit("user-joined", {
-        userId: initiatorUserId,
-        socketId: socket.id,
-      });
+
+      const allowedToNotify = await getAllowedRecipients(userId, conversation);
+      if (allowedToNotify.length > 0) {
+        for (const recipientId of allowedToNotify) {
+          const recipientSockets = io.userSockets?.get(recipientId);
+          if (recipientSockets) {
+            for (const sid of recipientSockets) {
+              io.sockets.sockets.get(sid)?.emit("user-joined", {
+                userId: initiatorUserId,
+                socketId: socket.id,
+              });
+            }
+          }
+        }
+      }
 
       try {
         const connectedUserId = String(socket.userId?.toString());
@@ -261,18 +311,15 @@ export default function (io, socket) {
           .findById(from)
           .select("email")
           .lean();
-
-        // Filter recipients: exclude those who have blocked the sender
-        const recipients = conversation.participants.filter(
-          (pid) => pid.toString() !== String(from),
-        );
-        const allowedRecipients = [];
-        for (const recipientId of recipients) {
-          const isBlocked = await isUserBlocked(recipientId, senderUser);
-          if (!isBlocked) {
-            allowedRecipients.push(recipientId.toString());
-          }
+        if (!senderUser) {
+          return ack?.({ status: "error", error: "Sender not found" });
         }
+
+        // Get allowed recipients (mutual block check)
+        const allowedRecipients = await getAllowedRecipients(
+          from,
+          conversation,
+        );
 
         // Emit to allowed recipients only
         if (allowedRecipients.length > 0) {
@@ -294,10 +341,19 @@ export default function (io, socket) {
               .map(String)
               .filter((id) => id !== String(from));
             const tokensToNotify = new Map();
-            for (const rid of recipients) {
-              // Skip if recipient has blocked the sender
-              const isBlocked = await isUserBlocked(rid, senderUser);
-              if (isBlocked) continue;
+            // Fetch recipient details to check for mutual blocks
+            const recipientUsers = await userModel
+              .find({ _id: { $in: recipients } })
+              .select("email")
+              .lean();
+
+            for (const rUser of recipientUsers) {
+              const rid = String(rUser._id);
+
+              // Skip if recipient has blocked the sender OR sender has blocked the recipient
+              const blockedByRecipient = await isUserBlocked(rid, senderUser);
+              const blockedBySender = await isUserBlocked(from, rUser);
+              if (blockedByRecipient || blockedBySender) continue;
 
               const isAnyVisible = await anySocketVisibleForUser(rid);
               if (isAnyVisible) continue;
@@ -352,9 +408,21 @@ export default function (io, socket) {
       message.status = "delivered";
       const savedMessage = await message.save();
       if (!savedMessage) return;
-      socket
-        .to(roomId)
-        .emit("message:delivered", { messageId: message._id.toString() });
+
+      const allowedToNotify = await getAllowedRecipients(
+        socket.userId,
+        conversation,
+      );
+      if (allowedToNotify.includes(message.from.toString())) {
+        const senderSockets = io.userSockets?.get(message.from.toString());
+        if (senderSockets) {
+          for (const sid of senderSockets) {
+            io.sockets.sockets.get(sid)?.emit("message:delivered", {
+              messageId: message._id.toString(),
+            });
+          }
+        }
+      }
     } catch (err) {
       console.log("message:received error:", err);
     }
@@ -382,11 +450,24 @@ export default function (io, socket) {
         return ack?.({ status: "error", error: "update_failed" });
       }
 
-      socket.to(conversationId).emit("messages:read", {
-        conversationId,
-        upToId,
-        readerId: socket.userId,
-      });
+      const conversation = await conversationModel.findById(conversationId);
+      const allowedToNotify = await getAllowedRecipients(
+        socket.userId,
+        conversation,
+      );
+
+      for (const recipientId of allowedToNotify) {
+        const recipientSockets = io.userSockets?.get(recipientId);
+        if (recipientSockets) {
+          for (const sid of recipientSockets) {
+            io.sockets.sockets.get(sid)?.emit("messages:read", {
+              conversationId,
+              upToId,
+              readerId: socket.userId,
+            });
+          }
+        }
+      }
 
       return ack?.({ status: "ok" });
     } catch (err) {
@@ -449,9 +530,29 @@ export default function (io, socket) {
    * typing
    * sends realtime update as a user is typing.
    */
-  socket.on("typing:sent", ({ conversationId, userId, typing }) => {
-    socket
-      .to(conversationId)
-      .emit("typing:received", { conversationId, userId, typing });
+  socket.on("typing:sent", async ({ conversationId, userId, typing }) => {
+    try {
+      const conversation = await conversationModel.findById(conversationId);
+      if (!conversation) return;
+
+      const allowedToNotify = await getAllowedRecipients(userId, conversation);
+
+      if (allowedToNotify.length > 0) {
+        for (const recipientId of allowedToNotify) {
+          const recipientSockets = io.userSockets?.get(recipientId);
+          if (recipientSockets) {
+            for (const sid of recipientSockets) {
+              io.sockets.sockets.get(sid)?.emit("typing:received", {
+                conversationId,
+                userId,
+                typing,
+              });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("typing:sent error:", err);
+    }
   });
 }
