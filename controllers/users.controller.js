@@ -360,6 +360,7 @@ const addContact = async (req, res) => {
 const getContactList = async (req, res) => {
   try {
     const ownerId = req.user._id;
+    const ownerEmail = req.user.email;
     const contacts = await contactModel.aggregate([
       { $match: { owner: ownerId } },
       { $sort: { updateAt: -1 } },
@@ -379,6 +380,7 @@ const getContactList = async (req, res) => {
           email: 1,
           localName: 1,
           isBlocked: 1,
+          contactUser: 1,
           contactProfile: {
             _id: "$contactProfile._id",
             displayName: "$contactProfile.displayName",
@@ -388,10 +390,35 @@ const getContactList = async (req, res) => {
         },
       },
     ]);
+    // Determine which contacts (their owners) have blocked the current user
+    const contactUserIds = contacts
+      .map((c) => c.contactUser)
+      .filter((id) => id !== null && id !== undefined);
+
+    let blockedOwnerIds = new Set();
+    if (contactUserIds.length > 0) {
+      const blocked = await contactModel
+        .find({
+          owner: { $in: contactUserIds },
+          email: ownerEmail,
+          isBlocked: true,
+        })
+        .select("owner")
+        .lean();
+      blockedOwnerIds = new Set(blocked.map((b) => String(b.owner)));
+    }
+
+    const contactsWithBlockedFlag = contacts.map((c) => ({
+      ...c,
+      blockedMe: c.contactUser
+        ? blockedOwnerIds.has(String(c.contactUser))
+        : false,
+    }));
+
     return res.status(200).json({
       message: "Contact list fetched successfully",
       success: true,
-      contacts,
+      contacts: contactsWithBlockedFlag,
     });
   } catch (error) {
     console.error(error);
@@ -482,15 +509,20 @@ const updateProfile = async (req, res) => {
 const setTourSettings = async (req, res) => {
   try {
     const userId = req.user._id;
-
-    const user = await userModel.findById(userId);
-    if (!user) return res.status(404).json({ error: "user_not_found" });
-    user.toured = true;
-    await user.save();
-    return res.json({ status: true, user });
+    const { completed } = req.body;
+    if (typeof completed !== "boolean") {
+      return res
+        .status(400)
+        .json({ error: "Invalid value for 'completed' field" });
+    }
+    const toured = completed === true;
+    await userModel.findByIdAndUpdate(userId, { toured }, { new: true });
+    return res
+      .status(200)
+      .json({ message: "Tour settings updated successfully", success: true });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: error.message });
+    console.error("setTourSettings error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -520,7 +552,7 @@ export {
   getContactList,
   blockContact,
   getContactsForUser,
-  updateProfile,
   setTourSettings,
+  updateProfile,
   logout,
 };
