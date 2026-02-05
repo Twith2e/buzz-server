@@ -360,15 +360,14 @@ const addContact = async (req, res) => {
 const getContactList = async (req, res) => {
   try {
     const ownerId = req.user._id;
-    const ownerEmail = req.user.email;
+    const ownerEmail = normalizeEmail(req.user.email);
     const contacts = await contactModel.aggregate([
       { $match: { owner: ownerId } },
-      { $sort: { updateAt: -1 } },
       {
         $lookup: {
           from: "users",
-          localField: "contactUser",
-          foreignField: "_id",
+          localField: "email",
+          foreignField: "email",
           as: "contactProfile",
         },
       },
@@ -380,38 +379,45 @@ const getContactList = async (req, res) => {
           email: 1,
           localName: 1,
           isBlocked: 1,
-          contactUser: 1,
+          contactUser: { $ifNull: ["$contactProfile._id", "$contactUser"] },
           contactProfile: {
             _id: "$contactProfile._id",
             displayName: "$contactProfile.displayName",
             profilePic: "$contactProfile.profilePic",
             lastSeen: "$contactProfile.lastSeen",
           },
+          updatedAt: 1,
         },
       },
+      { $sort: { updatedAt: -1 } },
     ]);
+
     // Determine which contacts (their owners) have blocked the current user
+    // We check for any contact document where:
+    // 1. owner is a user whose PROFILE we found (contactUser)
+    // 2. AND that document targets US (either via our email or our ID)
+    // 3. AND isBlocked is true
     const contactUserIds = contacts
       .map((c) => c.contactUser)
       .filter((id) => id !== null && id !== undefined);
 
-    let blockedOwnerIds = new Set();
+    let blockedMeIds = new Set();
     if (contactUserIds.length > 0) {
-      const blocked = await contactModel
+      const blockers = await contactModel
         .find({
           owner: { $in: contactUserIds },
-          email: ownerEmail,
+          $or: [{ email: ownerEmail }, { contactUser: ownerId }],
           isBlocked: true,
         })
         .select("owner")
         .lean();
-      blockedOwnerIds = new Set(blocked.map((b) => String(b.owner)));
+      blockedMeIds = new Set(blockers.map((b) => String(b.owner)));
     }
 
     const contactsWithBlockedFlag = contacts.map((c) => ({
       ...c,
       blockedMe: c.contactUser
-        ? blockedOwnerIds.has(String(c.contactUser))
+        ? blockedMeIds.has(String(c.contactUser))
         : false,
     }));
 
@@ -432,15 +438,25 @@ const blockContact = async (req, res) => {
     const { contactEmail } = req.query;
     const email = normalizeEmail(contactEmail);
     if (!email) return res.status(404).json({ error: "Email not found" });
+
+    // Try to find the user to populate contactUser field
+    const matchedUser = await userModel.findOne({ email }).select("_id").lean();
+
     const filter = { owner: ownerId, email };
     const update = {
       $set: {
         isBlocked: true,
         updatedAt: new Date(),
+        ...(matchedUser && { contactUser: matchedUser._id }),
+      },
+      $setOnInsert: {
+        localName: email, // Default localName if not exists
+        createdAt: new Date(),
       },
     };
     const updatedContact = await contactModel.findOneAndUpdate(filter, update, {
       new: true,
+      upsert: true,
     });
 
     return res.status(200).json({

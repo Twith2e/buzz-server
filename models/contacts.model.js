@@ -22,10 +22,11 @@ const ContactSchema = new Schema({
   matchedAt: { type: Date, default: null },
   isBlocked: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
-  updateAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
 });
 
 ContactSchema.index({ owner: 1, email: 1 }, { unique: true });
+ContactSchema.index({ owner: 1, contactUser: 1 });
 
 const contactModel = mongoose.model("Contact", ContactSchema);
 

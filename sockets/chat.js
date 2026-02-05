@@ -1,6 +1,7 @@
 import conversationModel from "../models/conversations.model.js";
 import messageModel from "../models/messages.model.js";
 import userModel from "../models/users.model.js";
+import contactModel from "../models/contacts.model.js";
 import { v4 as uuidv4 } from "uuid";
 import {
   anySocketVisibleForUser,
@@ -10,6 +11,26 @@ import subscriptionModel from "../models/subscriptions.model.js";
 import { sendPushToTokens } from "../utils/notify.js";
 
 export default function (io, socket) {
+  /**
+   * isUserBlocked
+   * Checks if blockerUserId has blocked blockedUserId by looking for a contact
+   * where the owner is blockerUserId, email matches blockedUser's email, and isBlocked is true.
+   */
+  async function isUserBlocked(blockerUserId, blockedUser) {
+    try {
+      if (!blockerUserId || !blockedUser || !blockedUser.email) return false;
+      const blocked = await contactModel.findOne({
+        owner: blockerUserId,
+        $or: [{ email: blockedUser.email }, { contactUser: blockedUser._id }],
+        isBlocked: true,
+      });
+      return !!blocked;
+    } catch (err) {
+      console.error("isUserBlocked error:", err);
+      return false;
+    }
+  }
+
   /**
    * normalizeAttachmentItem
    * Converts a client-provided attachment payload to the Message.attachments schema shape.
@@ -235,10 +256,38 @@ export default function (io, socket) {
 
         console.log("send-message payload:", payload);
 
-        socket.to(roomId).emit("chat-message", payload);
+        // Get sender user details
+        const senderUser = await userModel
+          .findById(from)
+          .select("email")
+          .lean();
+
+        // Filter recipients: exclude those who have blocked the sender
+        const recipients = conversation.participants.filter(
+          (pid) => pid.toString() !== String(from),
+        );
+        const allowedRecipients = [];
+        for (const recipientId of recipients) {
+          const isBlocked = await isUserBlocked(recipientId, senderUser);
+          if (!isBlocked) {
+            allowedRecipients.push(recipientId.toString());
+          }
+        }
+
+        // Emit to allowed recipients only
+        if (allowedRecipients.length > 0) {
+          for (const recipientId of allowedRecipients) {
+            const recipientSockets = io.userSockets?.get(recipientId);
+            if (recipientSockets) {
+              for (const socketId of recipientSockets) {
+                io.sockets.sockets.get(socketId)?.emit("chat-message", payload);
+              }
+            }
+          }
+        }
         ack?.({ status: "ok", payload });
 
-        // Push notification to offline recipients
+        // Push notification to offline recipients (only if not blocked)
         process.nextTick(async () => {
           try {
             const recipients = conversation.participants
@@ -246,6 +295,10 @@ export default function (io, socket) {
               .filter((id) => id !== String(from));
             const tokensToNotify = new Map();
             for (const rid of recipients) {
+              // Skip if recipient has blocked the sender
+              const isBlocked = await isUserBlocked(rid, senderUser);
+              if (isBlocked) continue;
+
               const isAnyVisible = await anySocketVisibleForUser(rid);
               if (isAnyVisible) continue;
 
